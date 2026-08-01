@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 
+const apiBaseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+
+function apiUrl(path) {
+  return apiBaseUrl ? `${apiBaseUrl}${path}` : path
+}
+
 const actionButtonRows = [
   ['2nd Left', '2nd Middle', '2nd Right', '3rd Floor+', '3rd Floor-'],
   ['Box entry (Open play)', 'Box entry (SP)', 'Shot on target', 'Shot off target'],
@@ -765,7 +771,7 @@ function AnalyzeMatches() {
   useEffect(() => {
     async function fetchMatches() {
       try {
-        const response = await fetch('/api/matches')
+        const response = await fetch(apiUrl('/api/matches'))
         if (!response.ok) {
           const errorText = await response.text()
           throw new Error(errorText || 'Failed to load matches')
@@ -813,7 +819,7 @@ function AnalyzeMatches() {
     setLoading(true)
     setError('')
     try {
-      const response = await fetch(`/api/matches/${matchId}`)
+      const response = await fetch(apiUrl(`/api/matches/${matchId}`))
       if (!response.ok) {
         const message = await response.text()
         throw new Error(message || 'Failed to load match')
@@ -838,7 +844,7 @@ function AnalyzeMatches() {
   async function saveSelectedMatchAction(actionData) {
     if (!selectedMatch) return
     try {
-      const response = await fetch(`/api/matches/${selectedMatch.id}/actions`, {
+      const response = await fetch(apiUrl(`/api/matches/${selectedMatch.id}/actions`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(actionData),
@@ -860,7 +866,7 @@ function AnalyzeMatches() {
   async function deleteSelectedMatchAction(actionId) {
     if (!selectedMatch) return
     try {
-      const response = await fetch(`/api/actions/${actionId}`, {
+      const response = await fetch(apiUrl(`/api/actions/${actionId}`), {
         method: 'DELETE',
       })
       if (!response.ok) {
@@ -1557,7 +1563,7 @@ function CreateMatch() {
     }
 
     try {
-      const response = await fetch('/api/matches', {
+      const response = await fetch(apiUrl('/api/matches'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(matchData),
