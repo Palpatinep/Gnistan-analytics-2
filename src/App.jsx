@@ -718,6 +718,19 @@ function AnalyzeMatches() {
     return value.toFixed(2)
   }
 
+  function formatActionTimeDisplay(value) {
+    if (value === null || value === undefined || value === '') return ''
+    if (typeof value === 'string' && value.includes(':')) return value
+
+    const totalSeconds = Number(value)
+    if (!Number.isFinite(totalSeconds)) return String(value)
+
+    const safeSeconds = Math.max(0, Math.floor(totalSeconds))
+    const minutes = Math.floor(safeSeconds / 60)
+    const seconds = safeSeconds % 60
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  }
+
   function parseCoord(coord) {
     if (!coord || typeof coord !== 'string') return null
     const [rawX, rawY] = coord.split(',')
@@ -1303,7 +1316,7 @@ function AnalyzeMatches() {
                           {selectedMatch.actions.filter(a => a.team === 'Home').map(action => (
                             <tr key={action.id}>
                               <td>{action.half}</td>
-                              <td>{action.time}</td>
+                              <td>{formatActionTimeDisplay(action.time)}</td>
                               <td>{action.action}</td>
                               <td>{action.detail ?? ''}</td>
                               <td>{action.coord ?? ''}</td>
@@ -1329,7 +1342,7 @@ function AnalyzeMatches() {
                           {selectedMatch.actions.filter(a => a.team === 'Away').map(action => (
                             <tr key={action.id}>
                               <td>{action.half}</td>
-                              <td>{action.time}</td>
+                              <td>{formatActionTimeDisplay(action.time)}</td>
                               <td>{action.action}</td>
                               <td>{action.detail ?? ''}</td>
                               <td>{action.coord ?? ''}</td>

@@ -13,10 +13,45 @@ const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
 })
 
+function toActionTimeSeconds(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(0, Math.floor(value))
+  }
+
+  if (typeof value !== 'string') return null
+  const raw = value.trim()
+  if (!raw) return null
+
+  if (/^\d+$/.test(raw)) {
+    return Math.max(0, Number(raw))
+  }
+
+  const match = raw.match(/^(\d{1,2}):(\d{2})$/)
+  if (!match) return null
+
+  const minutes = Number(match[1])
+  const seconds = Number(match[2])
+  if (!Number.isFinite(minutes) || !Number.isFinite(seconds) || seconds > 59) return null
+
+  return minutes * 60 + seconds
+}
+
 app.post('/api/matches', async (req, res) => {
   const { game, actions, firstHalfSeconds, secondHalfSeconds, firstHalfEnded, savedAt } = req.body
   if (!game || !Array.isArray(actions)) {
     return res.status(400).json({ error: 'Invalid payload' })
+  }
+
+  const normalizedActions = []
+  for (const action of actions) {
+    const timeSeconds = toActionTimeSeconds(action.time)
+    if (timeSeconds === null) {
+      return res.status(400).json({ error: `Invalid action time: ${String(action.time ?? '')}` })
+    }
+    normalizedActions.push({
+      ...action,
+      time: timeSeconds,
+    })
   }
 
   const client = await pool.connect()
@@ -42,7 +77,7 @@ app.post('/api/matches', async (req, res) => {
     )
 
     const matchId = matchResult.rows[0].id
-    const actionPromises = actions.map(action => {
+    const actionPromises = normalizedActions.map(action => {
       return client.query(
         `INSERT INTO actions (match_id, half, time, team, action_label, detail, coord, sp, goal)
           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
@@ -123,8 +158,13 @@ app.post('/api/matches/:id/actions', async (req, res) => {
   const matchId = req.params.id
   const { half, time, team, action, detail, coord, sp, goal } = req.body
 
-  if (!half || !time || !team || !action) {
+  if (!half || time === undefined || time === null || time === '' || !team || !action) {
     return res.status(400).json({ error: 'Missing action required fields' })
+  }
+
+  const timeSeconds = toActionTimeSeconds(time)
+  if (timeSeconds === null) {
+    return res.status(400).json({ error: `Invalid action time: ${String(time)}` })
   }
 
   const client = await pool.connect()
@@ -140,7 +180,7 @@ app.post('/api/matches/:id/actions', async (req, res) => {
       `INSERT INTO actions (match_id, half, time, team, action_label, detail, coord, sp, goal)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        RETURNING id, half, time, team, action_label AS action, detail, coord, sp, goal, created_at AS "createdAt"`,
-      [matchId, half, time, team, action, detail || null, coord || null, sp || false, goal || false]
+      [matchId, half, timeSeconds, team, action, detail || null, coord || null, sp || false, goal || false]
     )
 
     await client.query('COMMIT')
