@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS actions (
   id SERIAL PRIMARY KEY,
   match_id INTEGER NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
   half TEXT NOT NULL,
-  time TEXT NOT NULL,
+  time INTEGER NOT NULL,
   team TEXT NOT NULL,
   action_label TEXT NOT NULL,
   detail TEXT,
@@ -29,5 +29,28 @@ CREATE TABLE IF NOT EXISTS actions (
 
 ALTER TABLE actions ADD COLUMN IF NOT EXISTS sp BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE actions ADD COLUMN IF NOT EXISTS goal BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS first_half_seconds INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS second_half_seconds INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS first_half_ended BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS saved_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW();
 ALTER TABLE matches ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW();
 ALTER TABLE actions ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW();
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'actions'
+      AND column_name = 'time'
+      AND data_type <> 'integer'
+  ) THEN
+    ALTER TABLE actions
+    ALTER COLUMN time TYPE INTEGER
+    USING CASE
+      WHEN time ~ '^[0-9]+$' THEN time::INTEGER
+      WHEN time ~ '^[0-9]+:[0-5][0-9]$' THEN split_part(time, ':', 1)::INTEGER * 60 + split_part(time, ':', 2)::INTEGER
+      ELSE 0
+    END;
+  END IF;
+END $$;
